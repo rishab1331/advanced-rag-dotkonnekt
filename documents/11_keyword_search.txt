@@ -1,0 +1,47 @@
+**Keyword search** (also known as **lexical search** or **sparse retrieval**) is a traditional information retrieval method that finds documents by looking for **exact word matches** or shared tokens between a user's query and the indexed text.
+
+Unlike semantic search—which interprets underlying meaning and context—keyword search evaluates documents based purely on text overlapping and word frequency statistics.
+
+---
+
+## How Keyword Search Works
+
+1. **Tokenization & Normalization**: Raw text is split into individual words (tokens), converted to lowercase, stripped of punctuation, and filtered to remove common filler words (stop words like "and", "the", "is").
+2. **Stemming / Lemmatization**: Words are reduced to their root forms (e.g., "running", "runs", and "ran" are mapped to the base stem "run").
+3. **Inverted Index Construction**: The system builds a data structure called an **inverted index**—similar to an index at the back of a textbook—that maps every unique word to the exact list of documents (and positions) where it appears.
+4. **Scoring & Ranking**: When a query comes in, the search engine looks up the matching documents in the index and scores them using algorithms like **BM25** or **TF-IDF**.
+
+---
+
+## Core Algorithms: TF-IDF & BM25
+
+* **TF-IDF (Term Frequency-Inverse Document Frequency)**:
+* **Term Frequency (TF)**: Rewards documents where the query word appears frequently.
+* **Inverse Document Frequency (IDF)**: Penalizes words that appear commonly across *all* documents (like "system" or "data") and boosts rare, distinctive words (like "hyperparameter").
+
+
+* **BM25 (Best Matching 25)**: The industry-standard probabilistic ranking algorithm built on top of TF-IDF. It adds two key refinements:
+* **Term Frequency Saturation**: Prevents a document from artificially dominating scores just by repeating a keyword dozens of times.
+* **Document Length Normalization**: Adjusts scores so longer documents aren't unfairly favored over concise ones simply because they contain more total words.
+
+
+
+---
+
+## Strengths and Weaknesses
+
+| Strengths | Weaknesses |
+| --- | --- |
+| **Exact Term Precision**: Excellent for finding specific model numbers, stock keeping units (SKUs), error codes, or proper names. | **Vocabulary Mismatch Problem**: Fails to match relevant documents if the user uses synonyms (e.g., searching "automobile" misses documents using only "car"). |
+| **Speed & Resource Efficiency**: Operates rapidly on CPU infrastructure using low-overhead inverted indexes without requiring GPU vector math. | **No Context Awareness**: Ignores word order and intent (e.g., treats "bank of a river" the same as "river bank financial"). |
+| **Deterministic & Scalable**: Transparent scoring logic that easily scales to billions of documents in systems like Elasticsearch, OpenSearch, or Lucene. | **Sensitivity to Typos**: Fails on misspelled words unless explicit fuzzy matching or n-gram indexing is enabled. |
+
+---
+
+## Role in Modern RAG Pipelines
+
+In Retrieval-Augmented Generation (RAG), standalone keyword search is rarely used today. However, it remains a critical component when combined with vector search in a **Hybrid Search** configuration:
+
+* **Keyword Search** handles rare technical terms, code snippets, product IDs, and exact phrases.
+* **Semantic Search** handles broad questions, conceptual queries, and natural phrasing.
+* **Fusion Layer (RRF)**: Merges both result sets using Reciprocal Rank Fusion to leverage the strengths of both approaches before sending context to the LLM.

@@ -1,0 +1,114 @@
+In Retrieval-Augmented Generation (RAG), **grounded answers and citations** are the mechanisms that make AI responses factual, traceable, and audit-ready.
+
+While basic RAG retrieves relevant passages, a **grounded system** forces the Large Language Model (LLM) to restrict its knowledge strictly to the retrieved context (preventing hallucinations) and **cite exact source passages** for every claim it makes.
+
+---
+
+## 1. What Makes an Answer "Grounded"?
+
+An answer is considered **grounded** (or *faithful*) if every single assertion made in the response can be directly inferred from the retrieved documents.
+
+```
+               [ User Query ]
+                     │
+            [ Vector Search ] ──> Retrieves Document Chunks
+                     │
+           [ Context Injection ]
+                     │
+           [ System Instructions ] ──> "Answer ONLY using the provided text.
+                     │                  Do NOT use external knowledge."
+                     ▼
+             [ Grounded Output ] ──> Claims mapped directly to chunks
+
+```
+
+### Ungrounded vs. Grounded Output Example
+
+* **User Question**: *"What is the warranty coverage for Model X?"*
+* **Retrieved Passage**: *"Model X includes a 2-year hardware warranty covering manufacturing defects."*
+* ❌ **Ungrounded (Hallucinated)**: *"Model X comes with a 2-year warranty for manufacturing defects and 1 year of free accidental damage protection."* *(The 1-year accidental protection was fabricated by the LLM from training data)*.
+* ✅ **Grounded**: *"Model X is covered by a 2-year hardware warranty that applies strictly to manufacturing defects [Doc 1]."*
+
+---
+
+## 2. Technical Architecture for Citation Threading
+
+Generating accurate inline citations requires structuring how data flows through your RAG pipeline:
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        DATA INGESTION STAGE                            │
+│  Document ──> Chunking ──> Assign Unique ID (e.g., chunk_id: "doc_42") │
+└──────────────────────────────────┬─────────────────────────────────────┘
+                                   │
+┌──────────────────────────────────▼─────────────────────────────────────┐
+│                        RETRIEVAL STAGE                                 │
+│  Search Index ──> Top-K Chunks + Metadata (ID, Title, Page, URL)       │
+└──────────────────────────────────┬─────────────────────────────────────┘
+                                   │
+┌──────────────────────────────────▼─────────────────────────────────────┐
+│                        GENERATION STAGE                                │
+│  Prompt Injection ──> Format Chunks into XML/JSON Context             │
+│                       LLM generates text with inline markers: [doc_42] │
+└────────────────────────────────────────────────────────────────────────┘
+
+```
+
+### Step-by-step Implementation Pattern:
+
+1. **Metadata Injection**: During document chunking, tag each chunk with a unique reference ID and structural metadata (`doc_id`, `page_number`, `source_url`, `author`).
+2. **Context Formatting**: When constructing the prompt for the LLM, format context chunks clearly so the model can cite them easily:
+```xml
+<retrieved_context>
+  <doc id="chunk_101" title="Return Policy" page="3">
+    Returns are accepted within 30 days with original receipt.
+  </doc>
+  <doc id="chunk_102" title="Shipping Terms" page="1">
+    Standard shipping takes 3-5 business days.
+  </doc>
+</retrieved_context>
+
+```
+
+
+3. **Structured System Prompting**: Instruct the model using strict system constraints:
+> *"Answer the user query using ONLY the provided `<retrieved_context>`. For every claim you state, append an inline citation referring to the `id` of the source `<doc>` (e.g., [chunk_101]). If the context does not contain enough information, state 'I do not have enough information to answer.'"*
+
+
+
+---
+
+## 3. Post-Processing & Verification: Citation Verification Engine
+
+Relying solely on LLM prompt instructions can still lead to "citation hallucinations" (where an LLM adds a `[chunk_101]` tag next to a claim that the chunk doesn't actually support). Production platforms run a verification layer:
+
+1. **Claim Extraction**: Split the generated LLM response into individual sentences or atomic propositions.
+2. **NLI Verification (Natural Language Inference)**: Pass the parsed claim and the cited chunk through a Cross-Encoder or NLI classifier model.
+3. **Entailment Scoring**:
+* **Entailment**: The source chunk strictly proves the claim $\rightarrow$ **Keep Citation**.
+* **Contradiction / Neutral**: The source chunk does not support the claim $\rightarrow$ **Flag/Strip Citation or Trigger Refusal Path**.
+
+
+
+---
+
+## 4. Key Metrics for Evaluating Groundedness & Citations
+
+To measure groundedness programmatically (using evaluation frameworks like Ragas or TruLens), three primary metrics are calculated:
+
+$$\text{Groundedness Score} = \frac{\text{Number of Supported Claims}}{\text{Total Claims in Answer}} \quad \text{\cite{1.1.1, 1.1.5}}$$
+
+* **Faithfulness / Groundedness**: Measures the proportion of claims in the generated response that can be traced directly to retrieved passages.
+* **Citation Precision**: Of all citations placed by the LLM, what percentage accurately support the specific sentence they are attached to?
+* **Citation Recall**: Did the model cite all relevant sources that contributed to the generated answer, or did it leave statements unbacked?
+* **Refusal Accuracy**: Measures how effectively the system returns an *"I don't know based on the provided documents"* response when retrieval similarity scores fall below a minimum threshold.
+
+---
+
+## 5. Architectural Trade-offs & Common Pitfalls
+
+| Challenge | Cause | Architectural Solution |
+| --- | --- | --- |
+| **Citation Hallucination** | LLM appends citation markers to facts pulled from its parametric training memory. | NLI claim verification pass + strict zero-shot system prompting. |
+| **Over-Refusal** | Thresholds set too aggressively, causing LLM to reject valid partial context. | Query expansion / re-writing before retrieval, plus hybrid keyword-semantic search. |
+| **Granularity Mismatch** | Citing an entire 1,000-word chunk for a single 5-word fact frustrates users trying to verify. | Parent-Child chunking: Search over sentence-level child chunks for pinpoint citations, but pass parent sections for generation context. |

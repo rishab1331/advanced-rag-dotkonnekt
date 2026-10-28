@@ -1,0 +1,92 @@
+**Corrective Retrieval-Augmented Generation (CRAG)** is an advanced RAG architecture that introduces a dynamic self-correction mechanism to evaluate, filter, and fallback on alternative data sources whenever initial document retrieval fails.
+
+Standard RAG operates on a passive hypothesis: *"Whatever vector search returns must be passed to the LLM."* CRAG replaces this with an active evaluation step that quantifies retrieval quality and triggers corrective execution paths before generation happens.
+
+---
+
+## 1. High-Level CRAG Architecture
+
+```
+                       [ User Query ]
+                             │
+                     [ Vector Retrieval ]
+                             │
+                 [ Lightweight Evaluator ]
+                             │
+      ┌──────────────────────┼──────────────────────┐
+      │                      │                      │
+ [ Correct ]            [ Ambiguous ]          [ Incorrect ]
+ (Score > τ_high)     (τ_low ≤ Score ≤ τ_high)   (Score < τ_low)
+      │                      │                      │
+      ▼                      ▼                      ▼
+ Internal Knowledge   Internal Refinement   Query Rewriting
+    Refinement         + External Web Search   + Full Web Search
+      │                      │                      │
+      └──────────────────────┼──────────────────────┘
+                             │
+                    [ Cleaned Context ]
+                             │
+                             ▼
+                    [ LLM Generation ]
+
+```
+
+---
+
+## 2. The Three Core Execution Paths
+
+After initial vector retrieval, a **Retrieval Evaluator** (typically a fine-tuned lightweight cross-encoder or small LLM judge) scores candidate chunks against two confidence thresholds ($\tau_{\text{high}}$ and $\tau_{\text{low}}$):
+
+### A. Correct (High Confidence: Score $> \tau_{\text{high}}$)
+
+* **Diagnosis**: The vector database returned highly relevant context.
+* **Action**: Executes **Knowledge Refinement** via a *Decompose-then-Recompose* strategy.
+1. Splits the retrieved documents into micro-strips (e.g., individual sentences).
+2. Evaluates each strip to strip away internal document noise, tangential fluff, and irrelevant paragraphs.
+3. Recomposes the high-density facts into a cleaned context for the LLM.
+
+
+
+### B. Incorrect (Low Confidence: Score $< \tau_{\text{low}}$)
+
+* **Diagnosis**: The vector index failed completely (low semantic similarity, missing documentation, out-of-domain query).
+* **Action**: **Fallback Search & Query Rewriting**.
+1. Drops the retrieved internal chunks entirely to prevent injecting toxic or hallucination-inducing noise.
+2. Passes the query through an LLM to rewrite it into search-engine-optimized key terms.
+3. Hits an external web search API (e.g., Tavily, DuckDuckGo) to fetch real-time public knowledge.
+
+
+
+### C. Ambiguous (Medium Confidence: $\tau_{\text{low}} \le \text{Score} \le \tau_{\text{high}}$)
+
+* **Diagnosis**: The retrieved chunks are partially relevant but missing key context or containing mixed signals.
+* **Action**: **Hybrid Knowledge Merging**.
+1. Refines and keeps the viable internal chunks.
+2. Simultaneously rewrites the query and executes an external web search.
+3. Concatenates internal and web-retrieved facts into a balanced context payload.
+
+
+
+---
+
+## 3. Corrective RAG vs. Standard RAG
+
+| Feature | Standard RAG | Corrective RAG (CRAG) |
+| --- | --- | --- |
+| **Retrieval Trust Model** | Unconditional trust (passes top-$K$ directly to LLM) | Conditional trust (validates quality before generation) |
+| **Noise Resilience** | Poor; whole chunks passed with filler text | High; strips documents to sentence-level facts |
+| **Out-of-Domain Recovery** | Fails or causes hallucinations | Triggers fallback web search & query rewriting |
+| **Execution Complexity** | Fixed linear graph (`Query → Vector DB → LLM`) | Dynamic branching graph (`Retrieve → Grade → Route → Refine/Search → LLM`) |
+
+---
+
+## 4. Key Building Blocks in Code (e.g., LangGraph Flow)
+
+In framework implementations like LangGraph, CRAG is expressed as a stateful state machine:
+
+1. **`retrieve_node`**: Vector store search.
+2. **`grade_documents_node`**: Grader node running cross-encoder logic.
+3. **`decide_to_generate` (Router Edge)**: Directs to generation, web search, or decomposition based on confidence.
+4. **`transform_query_node`**: LLM query rewrite before calling search APIs.
+5. **`web_search_node`**: Fetches external context.
+6. **`generate_node`**: Final grounded response generation.

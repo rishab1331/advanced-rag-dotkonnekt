@@ -1,0 +1,70 @@
+**Vector database design** refers to the architecture, indexing mechanisms, and storage strategies used to efficiently store and query high-dimensional vector embeddings.
+
+While traditional databases index data using B-Trees for exact or range lookups, vector databases use **Approximate Nearest Neighbor (ANN)** search algorithms to find mathematical proximity in high-dimensional space (typically 384 to 4,096 dimensions) within milliseconds, even across billions of records.
+
+---
+
+## 1. High-Level Architecture of a Vector Database
+
+```
+[ Ingestion Pipeline ] ──> Chunking ──> Embedding Model ──> Vector DB Storage Layer
+                                                               │
+[ Query Pipeline    ] ──> User Query ──> Query Embedding ──────┼──> ANN Index / Metric Space
+                                                               │
+                                                       [ Re-Ranking & Context ]
+
+```
+
+* **Ingestion Layer**: Text, images, or audio are parsed, chunked, passed through an embedding model, and normalized.
+* **Storage Layer**: Persists the raw vectors, original text payloads, and associated metadata (e.g., timestamps, user IDs, document categories).
+* **Indexing Layer**: Builds mathematical lookup structures over the vectors to bypass scanning every single record.
+* **Execution/Query Engine**: Computes vector distance metrics against candidate nodes and applies metadata filters.
+
+---
+
+## 2. Core Vector Indexing Algorithms
+
+Because exact nearest neighbor search ($O(N)$ linear scan) is far too slow for production-scale AI applications, vector databases rely on specialized indexing algorithms that trade a tiny fraction of accuracy for massive speedups.
+
+### A. HNSW (Hierarchical Navigable Small World)
+
+* **How it works**: Builds a multi-layer graph. The top layers have sparse nodes with long-range connections (for fast coarse routing), while the bottom layer ($Layer 0$) contains every vector connected tightly to its local neighbors. Searching is a "greedy walk" through the graph.
+* **Pros**: Exceptional query speed and very high recall accuracy (often >99%).
+* **Cons**: Consumes high RAM because it has to store the graph structure in memory alongside the vectors.
+
+### B. IVF (Inverted File Index)
+
+* **How it works**: Uses clustering algorithms (like $k$-means) to group vectors into distinct partitions or "cells" represented by centroids. During a query, the system compares the query vector against centroids first and only searches inside the closest $N$ cells (`nprobe`).
+* **Pros**: Significantly lower memory footprint than HNSW; handles frequent bulk updates and disk-based storage well.
+* **Cons**: Lower out-of-the-box recall compared to HNSW unless you increase the number of cells scanned (`nprobe`), which spikes query latency.
+
+---
+
+## 3. Vector Compression & Quantization
+
+As datasets scale to tens or hundreds of millions of vectors, RAM limitations become the primary bottleneck. Quantization techniques compress vector footprints to drastically reduce infrastructure costs.
+
+* **Scalar Quantization (SQ)**: Compresses standard 32-bit floating-point numbers (`float32`) down to 8-bit integers (`int8`), reducing the memory footprint by roughly 4x with negligible loss in retrieval accuracy.
+* **Product Quantization (PQ)**: Splits high-dimensional vectors into smaller sub-vectors, quantizes each sub-vector against a learned codebook, and encodes them compactly. This provides extreme compression (often 10x to 30x smaller) to fit massive multi-million vector indexes entirely into RAM.
+
+---
+
+## 4. Distance Metrics
+
+The choice of similarity metric must match the normalization properties of the embedding model you use:
+
+| Metric | Mathematical Focus | Best Used For |
+| --- | --- | --- |
+| **Cosine Similarity** | Measures the *angle* between two vectors, ignoring magnitude. | Text embeddings where vector length can vary. |
+| **Dot Product (Inner Product)** | Measures alignment and magnitude combined. | Models whose outputs are already normalized to unit length (e.g., OpenAI text-embedding-3). |
+| **Euclidean Distance ($L_2$)** | Measures the straight-line *distance* between two points in space. | Image embeddings or absolute spatial coordinates. |
+
+---
+
+## 5. Architectural Trade-offs in Production
+
+When designing a vector database infrastructure for an ML project, architects balance three competing constraints:
+
+1. **Recall vs. Latency**: Higher index parameters (like a larger search scope `efSearch` in HNSW) yield better search accuracy (recall) but increase query time.
+2. **Memory (RAM) vs. Cost**: Keeping raw indexes entirely in memory provides ultra-low latency sub-10ms responses, but scales up cloud infrastructure costs drastically. Hybrid disk-based options (like DiskANN) trade a slight latency penalty to store vectors on SSDs.
+3. **Filter Performance**: Combining metadata filters (e.g., `user_id == 123`) with vector search can cause performance degradation if the database evaluates filters *after* vector retrieval (post-filtering) rather than *during* traversal (pre-filtering).

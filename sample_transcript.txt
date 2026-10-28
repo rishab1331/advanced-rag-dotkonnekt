@@ -1,0 +1,85 @@
+================================================================================
+ADVANCED RAG SESSION TRANSCRIPT | ID: session-1793132548
+================================================================================
+
+--- TURN 1 (2026-10-28T01:52:32) ---
+User Query: How does hybrid search work and why do we need document chunking?
+Decomposed/Rewritten Queries: ['How does hybrid search work in information retrieval systems?', 'Why is document chunking needed when indexing and retrieving large texts?']
+CRAG Context Grade: SUFFICIENT
+Top Re-ranked Chunks:
+  * [12_document_chunking.txt] (12_document_chunking.txt#0) | Rerank: 2.9706 | RRF: 0.03279
+  * [01_rag_fundamentals.txt] (01_rag_fundamentals.txt#8) | Rerank: -0.0951 | RRF: 0.01613
+  * [02_rag_info_retrieval.txt] (02_rag_info_retrieval.txt#32) | Rerank: -0.7105 | RRF: 0.03077
+  * [11_keyword_search.txt] (11_keyword_search.txt#3) | Rerank: -3.2214 | RRF: 0.01613
+Abstained: False | Citations: ['11_keyword_search.txt', '12_document_chunking.txt']
+
+Assistant Answer:
+Hybrid search blends two complementary retrieval methods: a keyword search (e.g., BM25) that excels at exact matches for rare terms, code snippets, or product IDs, and a semantic (vector) search that captures broader, natural‑language queries. The two result sets are combined by a fusion layer—commonly Reciprocal Rank Fusion (RRF)—which merges rankings to leverage the precision of keyword matches and the coverage of semantic similarity before passing the context to the LLM [11_keyword_search.txt]. Document chunking is a prerequisite for effective RAG because LLMs have limited context windows and embedding models perform best on focused, cohesive passages. Breaking large documents into smaller chunks improves embedding quality (preventing dilution of meaning), enhances retrieval precision (allowing the engine to pinpoint exact sentences or paragraphs), and ensures the retrieved chunks fit within the model’s context window alongside prompts and chat history [12_document_chunking.txt].
+
+LLM Call Telemetry:
+  - [query_transformation] model=openai/gpt-oss-120b | latency=637.78ms | tokens=489 (in=328, out=161)
+  - [crag_context_grader] model=openai/gpt-oss-120b | latency=930.82ms | tokens=1496 (in=1164, out=332)
+  - [grounded_generation] model=openai/gpt-oss-120b | latency=1331.61ms | tokens=1702 (in=1261, out=441)
+
+--- TURN 2 (2026-10-28T01:52:37) ---
+User Query: How does Reciprocal Rank Fusion combine those search results, and what happens if retrieval quality is weak?
+Decomposed/Rewritten Queries: ['Explain how Reciprocal Rank Fusion (RRF) combines the result rankings from keyword (e.g., BM25) and vector (semantic) searches in a hybrid retrieval system.', 'Describe what happens to downstream RAG performance when the initial retrieval quality is weak, including effects on LLM answer generation and possible mitigation strategies.']
+CRAG Context Grade: WEAK -> Re-queried with: 'Reciprocal Rank Fusion weak retrieval quality fallback mitigation impact on RAG answer generation'
+Top Re-ranked Chunks:
+  * [02_rag_info_retrieval.txt] (02_rag_info_retrieval.txt#29) | Rerank: 2.6601 | RRF: 0.06254
+  * [11_keyword_search.txt] (11_keyword_search.txt#3) | Rerank: 1.6529 | RRF: 0.06256
+  * [07_hybridserach.txt] (07_hybridserach.txt#1) | Rerank: 1.6464 | RRF: 0.01587
+  * [02_rag_info_retrieval.txt] (02_rag_info_retrieval.txt#33) | Rerank: 1.5448 | RRF: 0.04892
+Abstained: False | Citations: ['07_hybridserach.txt', '02_rag_info_retrieval.txt']
+
+Assistant Answer:
+Reciprocal Rank Fusion (RRF) merges the result lists from the different search methods by looking at the rank position of each document in each list rather than the raw relevance scores. For each document it computes a score that is the sum of 1 / (k + rank) across the lists (where *k* is a constant, commonly 60) and then re‑orders the combined list by these summed scores. Because it relies only on rank positions, RRF works well when the underlying searches (e.g., BM25 keyword search and vector‑based semantic search) produce scores on different scales, allowing the two sets to be fused without needing to normalize the scores [07_hybridserach.txt, 02_rag_info_retrieval.txt].
+
+The supplied documents do not contain information about the consequences of weak retrieval quality, so no evidence‑based answer can be given for that part of the question.
+
+LLM Call Telemetry:
+  - [query_transformation] model=openai/gpt-oss-120b | latency=1125.52ms | tokens=862 (in=541, out=321)
+  - [crag_context_grader] model=openai/gpt-oss-120b | latency=1445.99ms | tokens=1834 (in=1230, out=604)
+  - [grounded_generation] model=openai/gpt-oss-120b | latency=1877.57ms | tokens=2200 (in=1535, out=665)
+
+--- TURN 3 (2026-10-28T01:53:12) ---
+User Query: What are the main factors to consider in vector database design and OpenAI vs Google embeddings?
+Decomposed/Rewritten Queries: ['What are the main factors and best practices to consider when designing and scaling a vector database (e.g., indexing structures, distance metrics, hardware requirements, sharding, metadata handling, latency, consistency, and cost)?', 'How do OpenAI embeddings compare to Google embeddings regarding model architecture, dimensionality, performance, cost, licensing, and typical application scenarios?']
+CRAG Context Grade: WEAK -> Re-queried with: 'OpenAI vs Google embedding models comparison, differences in dimensions, performance, pricing, and use cases'
+Top Re-ranked Chunks:
+  * [08_docker_ragtool_documentatio.txt] (08_docker_ragtool_documentatio.txt#2) | Rerank: 0.8291 | RRF: 0.04663
+  * [04_vectorembeddings_openai.txt] (04_vectorembeddings_openai.txt#0) | Rerank: 0.7268 | RRF: 0.04813
+  * [13_vector_database_design.txt] (13_vector_database_design.txt#4) | Rerank: -0.1618 | RRF: 0.032
+  * [13_vector_database_design.txt] (13_vector_database_design.txt#0) | Rerank: -0.3249 | RRF: 0.03279
+Abstained: False | Citations: ['13_vector_database_design.txt', '04_vectorembeddings_openai.txt', '08_docker_ragtool_documentatio.txt']
+
+Assistant Answer:
+Vector database design must balance several architectural trade‑offs. The key factors are (1) **Recall vs. latency** – higher ANN index parameters improve accuracy but increase query time; (2) **Memory vs. cost** – keeping the full index in RAM gives sub‑10 ms latency but raises cloud costs, while disk‑based options (e.g., DiskANN) reduce cost at a modest latency penalty; (3) **Filter performance** – applying metadata filters during the vector traversal (pre‑filtering) is faster than post‑filtering after retrieval; and (4) the overall pipeline components such as ingestion (chunking, embedding), storage, indexing, and query execution shape performance and scalability【13_vector_database_design.txt】. 
+
+OpenAI’s text‑embedding models (e.g., text‑embedding‑3‑small) produce 1536‑dimensional vectors and are marketed for low cost, high multilingual performance, and broad use cases like search, clustering, and recommendation【04_vectorembeddings_openai.txt】. In contrast, Google’s Gemini embedding‑2 model outputs 3072‑dimensional vectors, requiring matching vector dimensions in the database configuration【08_docker_ragtool_documentatio.txt】. The larger dimensionality can capture richer semantics but may increase storage and compute requirements. Choosing between them depends on cost, desired dimensionality, and the specific downstream tasks.
+
+LLM Call Telemetry:
+  - [query_transformation] model=openai/gpt-oss-120b | latency=5340.21ms | tokens=1169 (in=758, out=411)
+  - [crag_context_grader] model=openai/gpt-oss-120b | latency=11043.23ms | tokens=1622 (in=1353, out=269)
+  - [grounded_generation] model=openai/gpt-oss-120b | latency=16814.26ms | tokens=2666 (in=1954, out=712)
+
+--- TURN 4 (2026-10-28T01:53:46) ---
+User Query: What is the company's policy on remote work vacation days and laptop reimbursement?
+Decomposed/Rewritten Queries: ['company policy remote work vacation days', 'company policy laptop reimbursement']
+CRAG Context Grade: WEAK -> Re-queried with: 'company remote work vacation policy laptop reimbursement HR handbook'
+Top Re-ranked Chunks:
+  * [03_rag_Overview.txt] (03_rag_Overview.txt#2) | Rerank: -4.29 | RRF: 0.0817
+  * [01_rag_fundamentals.txt] (01_rag_fundamentals.txt#15) | Rerank: -11.0839 | RRF: 0.09705
+  * [03_rag_Overview.txt] (03_rag_Overview.txt#4) | Rerank: -11.3243 | RRF: 0.03054
+  * [06_google_embeddings.txt] (06_google_embeddings.txt#33) | Rerank: -11.3249 | RRF: 0.03078
+Abstained: True | Citations: []
+
+Assistant Answer:
+The provided documents do not contain information about the company's policy on remote work vacation days or laptop reimbursement.
+
+LLM Call Telemetry:
+  - [query_transformation] model=openai/gpt-oss-120b | latency=11101.21ms | tokens=1283 (in=1068, out=215)
+  - [crag_context_grader] model=openai/gpt-oss-120b | latency=12971.26ms | tokens=1477 (in=1309, out=168)
+  - [grounded_generation] model=openai/gpt-oss-120b | latency=7905.34ms | tokens=1352 (in=1164, out=188)
+
+================================================================================

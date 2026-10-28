@@ -1,0 +1,42 @@
+In Retrieval-Augmented Generation (RAG), **semantic search** is the foundational mechanism used to find relevant knowledge from a document collection based on the **meaning and intent** of a query rather than exact keyword matches.
+
+Traditional lexical search relies on exact word occurrences (like BM25 or TF-IDF), which fails when a user asks a question using synonyms or different phrasing. Semantic search solves this by representing both the user query and the document chunks in a shared high-dimensional vector space.
+
+---
+
+## How Semantic Search Works in a RAG Pipeline
+
+1. **Embedding Generation**: Text chunks (from your knowledge base) and the user query are passed through an embedding model (e.g., OpenAI `text-embedding-3`, BGE, Sentence-Transformers) to produce dense vector representations.
+2. **Vector Indexing & Storage**: Vectors are stored in a vector database (e.g., Pinecone, Qdrant, Milvus, FAISS) indexed using algorithms like HNSW (Hierarchical Navigable Small World) for fast similarity lookups.
+3. **Similarity Retrieval**: When a query arrives, the system computes similarity metrics—such as Cosine Similarity or Dot Product—to find the Top-$K$ closest document vectors to the query vector.
+4. **Context Injection**: The retrieved text chunks are formatted into the system prompt alongside the user's original query and sent to the LLM to generate an accurate, grounded response.
+
+---
+
+## Semantic Search vs. Lexical Search
+
+| Feature | Semantic Search (Dense Retrieval) | Lexical Search (Sparse Retrieval - BM25) |
+| --- | --- | --- |
+| **Matching Mechanism** | Conceptual meaning & context | Exact words, tokens, or n-grams |
+| **Handles Synonyms/Paraphrasing** | High performance (e.g., "car" matches "automobile") | Low performance unless explicit synonym maps exist |
+| **Specific Identifiers / IDs** | Struggles with rare product IDs, codes, or obscure names | Strong with exact serial numbers, proper nouns, and codes |
+| **Computational Cost** | Requires GPU/embedding models & vector storage | Lightweight CPU execution with inverted indexes |
+
+---
+
+## Key Challenges in RAG Semantic Search
+
+* **The Semantic Gap / Misalignment**: User queries are often short questions ("How do I fix error 404?"), while target chunks are long descriptive answers. Because the structural form differs, standard embedding models sometimes assign lower similarity scores than expected.
+* **Loss of Exact Match Precision**: Dense vectors prioritize broad topic proximity, which can miss critical exact matches like legal clause numbers, SKU IDs, or precise technical terms.
+* **Chunking Granularity**: If chunks are too large, distinct topics blur together in a single embedding; if chunks are too small, crucial context is severed.
+
+---
+
+## Modern Improvements & Best Practices
+
+To overcome pure semantic search limitations, production RAG pipelines commonly adopt these optimizations:
+
+* **Hybrid Search (Dense + Sparse)**: Combines vector similarity (semantic) with BM25 keyword matching via Reciprocal Rank Fusion (RRF) to capture both contextual meaning and exact terms.
+* **Re-Ranking**: Uses a cross-encoder model (e.g., Cohere Rerank, BGE-Reranker) on the top 20–50 retrieved results to rescore and refine order based on deep joint query-document context before passing the top $K$ to the LLM.
+* **HyDE (Hypothetical Document Embeddings)**: Generates a hypothetical answer using an LLM first, embeds that answer, and uses it to search the vector index—aligning query-to-chunk structure.
+* **Query Transformation**: Rewrites or decomposes ambiguous user queries into clearer, standalone search inputs before embedding.

@@ -1,0 +1,68 @@
+**Document chunking** is the critical preprocessing step in a RAG pipeline where large source documents (PDFs, codebases, web pages, books) are broken down into smaller, manageable text segments before they are embedded and stored in a vector database.
+
+Because Large Language Models (LLMs) have finite context windows and embedding models perform best on focused, cohesive passages of text, how you chunk your documents directly determines the quality of your retrieval and the accuracy of your final generated answers.
+
+---
+
+## Why Chunking is Essential in RAG
+
+1. **Embedding Quality**: Embedding models capture the semantic "meaning" of text. If a chunk contains too many disparate topics (e.g., a whole chapter), the vector representation becomes diluted and loses precision.
+2. **Retrieval Precision**: Smaller chunks allow the search engine to pinpoint exact sentences or paragraphs relevant to a query, rather than pulling in pages of irrelevant noise.
+3. **Context Window Management**: Retrieved chunks must fit comfortably within the LLM's context window alongside the system prompt, chat history, and the user's query.
+
+---
+
+## Core Document Chunking Strategies
+
+Different document types and use cases require different slicing approaches. Here are the most common strategies used in production RAG systems:
+
+### 1. Fixed-Size Chunking
+
+* **How it works**: Splits text strictly based on a pre-determined number of characters or tokens (e.g., exactly 500 tokens per chunk) with a specified **overlap** (e.g., 50 tokens).
+* **Pros**: Highly predictable, computationally cheap, and easy to implement.
+* **Cons**: Ignores natural semantic boundaries, often cutting sentences or paragraphs in half, which degrades context.
+
+### 2. Recursive Character Text Splitting
+
+* **How it works**: The industry-standard default (used by frameworks like LangChain and LlamaIndex). It attempts to split text hierarchically using a list of separators in order—typically paragraphs (`\n\n`), lines (`\n`), spaces (` `), and characters. It moves down the list until each chunk falls under the target size.
+* **Pros**: Keeps paragraphs and sentences intact as much as possible, preserving natural reading flow.
+* **Cons**: Still bound by arbitrary character limits rather than true semantic shifts.
+
+### 3. Semantic Chunking
+
+* **How it works**: Evaluates the semantic similarity between consecutive sentences. When the distance or drop in cosine similarity exceeds a specific threshold (signifying a shift in topic), a split is triggered.
+* **Pros**: Highly accurate; chunks align with actual conceptual boundaries in the text.
+* **Cons**: Computationally expensive because it requires running an embedding model across every single sentence beforehand.
+
+### 4. Structure-Aware / Element-Based Chunking
+
+* **How it works**: Parses documents using structural markers. For Markdown or HTML, it splits by headers (`#`, `##`). For code, it uses Abstract Syntax Trees (AST) to keep functions and classes intact. For PDFs, it handles tables and figures separately.
+* **Pros**: Maintains the structural integrity of technical docs, reports, and codebases.
+* **Cons**: Requires specialized parsers and varies heavily based on input format.
+
+---
+
+## Comparing Chunking Strategies
+
+| Strategy | Computational Cost | Semantic Integrity | Best Use Case |
+| --- | --- | --- | --- |
+| **Fixed-Size** | Very Low | Low | Quick prototypes, uniform text streams |
+| **Recursive** | Low | Moderate | General-purpose documentation, long articles |
+| **Semantic** | High | High | Complex research papers, essays, varying topics |
+| **Structure-Aware** | Moderate to High | Very High | Code repositories, markdown wikis, structured reports |
+
+---
+
+## Key Parameters to Tune
+
+* **Chunk Size ($N$ tokens/characters)**: Typically ranges from 250 to 1000 tokens. Smaller chunks (256) offer high precision for narrow lookups; larger chunks (1024) provide broader context for complex reasoning.
+* **Chunk Overlap ($O$)**: Typically set to 10% to 20% of the chunk size. Overlapping ensures that if a key sentence or concept falls right on a boundary, it is preserved in both adjacent chunks, preventing context loss during retrieval.
+
+---
+
+## Advanced Chunking Patterns
+
+* **Parent-Child (Hierarchical) Retrieval**: You index and search over small child chunks (e.g., 128 tokens) for high precision, but when a match is found, you feed the wider parent chunk (e.g., 512 or 1024 tokens) to the LLM to provide full context.
+* **Propositional Chunking**: Uses an LLM to break a document down into atomic, self-contained factual statements (propositions) before embedding them, drastically improving retrieval specificity.
+
+*Would you like to see a Python code example demonstrating how to implement Recursive and Semantic chunking using LangChain or LlamaIndex for your ML project?*
